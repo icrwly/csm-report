@@ -14,7 +14,7 @@ if len(sys.argv) != 2:
 org_id = sys.argv[1]
 
     # Session variable (cookie) value
-session_cookie = f"X-Pantheon-Admin-Session=bfee453a-5bfd-4acd-9649-ac29d6155abb:f10d6f96-cdbf-11ee-8fc0-8210adee98b3:b5NnDSAfVjGnZA7uF6ZWW"
+session_cookie = f"X-Pantheon-Admin-Session=bfee453a-5bfd-4acd-9649-ac29d6155abb:5244c00a-d4f2-11ee-90b5-8ab38a67428e:XmWhz4nKDqZTHPFQ1v6BP"
 
     # Construct headers dictionary with the session variable (cookie)
 headers = {"Cookie": session_cookie}
@@ -94,39 +94,69 @@ def check_caching(domain):
           
 
 def get_redis_command(site_name):
-    print(get_redis_command)
-    # Call terminus connection:info with the provided site_name
+    """
+    Fetches the Redis command to connect to a site's live instance using Terminus.
+
+    Args:
+        site_name (str): The name of the site.
+
+    Returns:
+        str: The Redis command if Redis is enabled, otherwise None.
+    """
     command = f"terminus connection:info {site_name}.live --fields=redis_command --format json"
-    result = subprocess.run(command, shell=True, capture_output=True, text=True)
-    if result.returncode == 0:
-        try:
-            data = json.loads(result.stdout)
+    try:
+        result = subprocess.run(command, shell=True, capture_output=True, text=True, check=True)
+        data = json.loads(result.stdout)
+        # If data is a dictionary, directly extract the Redis command
+        if isinstance(data, dict):
             redis_command = data.get("redis_command")
+            if not redis_command:
+                print(f"Redis is not enabled for {site_name}.")
+                return None
             return redis_command
-        except json.JSONDecodeError as e:
-            print("Error decoding JSON:", e)
+        # If data is a list of dictionaries or strings
+        elif isinstance(data, list):
+            for connection in data:
+                # Check if data is a dictionary
+                if isinstance(connection, dict):
+                    redis_command = connection.get("redis_command")
+                    if redis_command:
+                        return redis_command
+                # Check if data is a string
+                elif isinstance(connection, str):
+                    if connection:
+                        return connection
+            print(f"No Redis command found for {site_name}.")
             return None
-    else:
-        print("Error executing terminus command:", result.stderr)
+        else:
+            print(f"Unexpected data format: {data}")
+            return None
+    except (subprocess.CalledProcessError, json.JSONDecodeError) as e:
+        print(f"Error getting Redis command: {e}")
         return None
 
 def check_redis_status(redis_command):
-    if redis_command:
-        # Connect to redis using the command given
-        command = f"{redis_command} DBSIZE"
-        result = subprocess.run(command, shell=True, capture_output=True, text=True)
-        if result.returncode == 0:
-            try:
-                dbsize = int(result.stdout.strip().split()[-1])  # Extracting the DBSIZE value
-                return dbsize
-            except ValueError:
-                print("Error: Unexpected output from redis-cli command")
-                return None
-        else:
-            print("Error executing redis-cli command:", result.stderr)
-            return None
-    else:
-        return None
+    """
+    Checks if Redis is enabled and configured properly by connecting to the Redis server and running DBSIZE command.
+
+    Args:
+        redis_command (str): The Redis command.
+
+    Returns:
+        bool: True if Redis is enabled and configured properly, False otherwise.
+    """
+    if not redis_command:
+        return False
+    
+    command = f"{redis_command} DBSIZE"
+    try:
+        result = subprocess.run(command, shell=True, capture_output=True, text=True, check=True)
+        dbsize = int(result.stdout.strip().split()[-1])
+        print(f"Redis DBSIZE: {dbsize}")
+        return dbsize > 0
+    except (subprocess.CalledProcessError, ValueError) as e:
+        print(f"Error checking Redis status: {e}")
+        return False
     
 
 
@@ -242,12 +272,16 @@ for site_info in non_sandbox_sites:
 
             # Check Redis status
             redis_command = get_redis_command(site_name)
+            
             if redis_command:
-                dbsize = check_redis_status(redis_command)
-                if dbsize is not None:
-                    # Check if Redis is enabled
-                    if dbsize > 1:
-                        redis_enabled_sites_count += 1
+                if check_redis_status(redis_command):
+                    print("Redis is enabled and configured properly.")
+                    redis_enabled_sites_count += 1
+                else:
+                    print("Redis is enabled but may not be configured properly.")
+                    redis_enabled_sites_count += 1
+            else:
+                print("Redis is not enabled.")
 
     except json.JSONDecodeError:
         print(f"Error decoding JSON for primary domain of {site_name}")
@@ -294,9 +328,17 @@ for site_info in non_sandbox_sites:
     custom_upstreams_command = f'terminus org:upstream:list {org_id} --format=json'
     custom_upstreams_output = subprocess.getoutput(custom_upstreams_command)
 
-    # Check if Custom Upstreams are present
-    if json.loads(custom_upstreams_output):
-        created_custom_upstream_yes_count += 1
+    # Check if the output contains the warning message indicating no upstreams
+    if "[warning] You have no upstreams." in custom_upstreams_output:
+        print("No custom upstreams found.")
+    else:
+        # Attempt to load the JSON output
+        try:
+            upstreams_json = json.loads(custom_upstreams_output)
+            if upstreams_json:
+                created_custom_upstream_yes_count += 1
+        except json.JSONDecodeError as e:
+            print("Error decoding JSON:", e)
 
 # Calculate percentages
 percentage_multidev_sites = round((multidev_sites_count / total_sites) * 100)

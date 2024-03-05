@@ -390,13 +390,27 @@ html_template = """
     <p>Total: {{ total_sites }}</p>
   </section>
 
-  <section class="bg-white rounded-md p-6 mb-8">
-    <h2 class="text-2xl font-bold mb-4">Team Members</h2>
-    <ul>
+    <section class="bg-white rounded-md p-6 mb-8">
+     <h2 class="text-2xl font-bold mb-4">Team Members</h2>
+     <table class="w-full">
+      <thead>
+        <tr>
+          <th class="px-4 py-2 text-left">Email</th>
+          <th class="px-4 py-2 text-left">Role</th>
+          <th class="px-4 py-2 text-left">Certification</th>
+        </tr>
+      </thead>
+      <tbody>
+    
       {% for user_id, user_info in pantheon_team_members.items() %}
-        <li>Email: {{ user_info["email"] }}, Role: {{ user_info["role"] }}, Certified: {% if is_certified(user_info["email"]) %}Yes{% else %}No{% endif %}</li>
+        <tr class="border-t border-gray-200 space-x-4">
+          <td>{{ user_info["email"] }}</td> 
+          <td>{{ user_info["role"] }}</td>
+          <td>{% if is_certified(user_info["email"]) %}Yes{% else %}No{% endif %}</td>
+        </tr>
       {% endfor %}
-    </ul>
+      </tbody>
+    </table>
   </section>
 
   <section class="bg-white rounded-md p-6 mb-8">

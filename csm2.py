@@ -119,6 +119,18 @@ def get_ticket_volume(org_id, days=30, admin_cookie=''):
     else:
         print(f"Failed to fetch ticket data. Status code: {response.status_code}")
         return None, None, None
+    
+# Run Terminus command to check Custom Upstreams
+custom_upstreams_command = f'terminus org:upstream:list {org_id} --format=json'
+custom_upstreams_output = subprocess.getoutput(custom_upstreams_command)
+
+# Check if the output contains the warning message indicating no upstreams
+if "[warning] You have no upstreams." in custom_upstreams_output:
+    custom_upstreams_status = "No"
+else:
+    custom_upstreams_status = "Yes"
+
+print("Custom Upstreams:", custom_upstreams_status)
 
 # Function to check caching status and cache hit ratio for a given domain
 def check_caching(site_name, threshold=60):
@@ -229,7 +241,6 @@ drupal_sites_count = 0
 autopilot_sites_count = 0
 quicksilver_hooks_sites_count = 0
 build_tools_sites_count = 0
-created_custom_upstream_yes_count = 0
 agcdn_enabled_sites_count = 0
 total_sites_with_primary_domain = 0
 total_sites_with_caching_below_60 = 0
@@ -245,7 +256,6 @@ def perform_site_checks(site_info):
     global autopilot_sites_count
     global quicksilver_hooks_sites_count
     global build_tools_sites_count
-    global created_custom_upstream_yes_count
     global agcdn_enabled_sites_count
     global total_sites_with_primary_domain
     global total_sites_with_caching_below_60
@@ -333,22 +343,6 @@ def perform_site_checks(site_info):
     if "[error]" not in build_tools_output:
         build_tools_sites_count += 1
 
-    # Run Terminus command to check Custom Upstreams
-    custom_upstreams_command = f'terminus org:upstream:list {org_id} --format=json'
-    custom_upstreams_output = subprocess.getoutput(custom_upstreams_command)
-
-    # Check if the output contains the warning message indicating no upstreams
-    if "[warning] You have no upstreams." in custom_upstreams_output:
-        print("No custom upstreams found.")
-    else:
-        # Attempt to load the JSON output
-        try:
-            upstreams_json = json.loads(custom_upstreams_output)
-            if upstreams_json:
-                created_custom_upstream_yes_count += 1
-        except json.JSONDecodeError as e:
-            print("Error decoding JSON:", e)
-            
     
 # Function to process sites concurrently
 def process_sites_concurrently(sites):
@@ -369,7 +363,6 @@ percentage_drupal_sites = round((drupal_sites_count / total_sites) * 100)
 percentage_autopilot_sites = round((autopilot_sites_count / total_sites) * 100)
 percentage_quicksilver_hooks_sites = round((quicksilver_hooks_sites_count / total_sites) * 100)
 percentage_build_tools_sites = round((build_tools_sites_count / total_sites) * 100)
-percentage_created_custom_upstream_yes = round((created_custom_upstream_yes_count / total_sites) * 100)
 percentage_agcdn_enabled_sites = round((agcdn_enabled_sites_count / total_sites_with_primary_domain) * 100)
 percentage_sites_with_caching = round((total_sites_with_caching_below_60 / total_sites_with_primary_domain) * 100)
 percentage_redis_enabled = round((redis_enabled_sites_count / total_sites_with_primary_domain) * 100)
@@ -418,7 +411,7 @@ html_template = """
     <p>Percentage of sites using Autopilot: {{ percentage_autopilot_sites }}%</p>
     <p>Percentage of sites using Quicksilver Hooks: {{ percentage_quicksilver_hooks_sites }}%</p>
     <p>Percentage of sites using Build Tools: {{ percentage_build_tools_sites }}%</p>
-    <p>Using Custom Upstreams: Yes - {{ percentage_created_custom_upstream_yes }}%</p>
+    <p>Using Custom Upstreams: {{ custom_upstreams_status }}</p>  
   </section>
 
   <section class="bg-white rounded-md p-6 mb-8">
@@ -463,7 +456,7 @@ html_content = template.render(
     percentage_autopilot_sites=percentage_autopilot_sites,
     percentage_quicksilver_hooks_sites=percentage_quicksilver_hooks_sites,
     percentage_build_tools_sites=percentage_build_tools_sites,
-    percentage_created_custom_upstream_yes=percentage_created_custom_upstream_yes,
+    custom_upstreams_status=custom_upstreams_status,
     percentage_agcdn_enabled_sites=percentage_agcdn_enabled_sites,
     sites_not_using_agcdn=sites_not_using_agcdn,
     pantheon_team_members=pantheon_team_members,

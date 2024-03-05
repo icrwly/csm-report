@@ -3,7 +3,7 @@ import requests
 import subprocess
 import json
 import os
-import asyncio
+import statistics
 from jinja2 import Template
 from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor
@@ -16,7 +16,7 @@ if len(sys.argv) != 2:
 org_id = sys.argv[1]
 
     # Session variable (cookie) value
-session_cookie = f"X-Pantheon-Admin-Session=bfee453a-5bfd-4acd-9649-ac29d6155abb:5244c00a-d4f2-11ee-90b5-8ab38a67428e:XmWhz4nKDqZTHPFQ1v6BP"
+session_cookie = f"X-Pantheon-Admin-Session=bfee453a-5bfd-4acd-9649-ac29d6155abb:3cd2d9fa-da47-11ee-ba44-6e0129d7002d:1V1NyCqiLo8c0bZOaQ1tC"
 
     # Construct headers dictionary with the session variable (cookie)
 headers = {"Cookie": session_cookie}
@@ -120,30 +120,32 @@ def get_ticket_volume(org_id, days=30, admin_cookie=''):
         print(f"Failed to fetch ticket data. Status code: {response.status_code}")
         return None, None, None
 
-# Function to check caching status for a given domain
-def check_caching(domain):
-    print("check_caching")
+# Function to check caching status and cache hit ratio for a given domain
+def check_caching(site_name, threshold=60):
     try:
-        # Send a GET request to the domain and allow redirects
-        response = requests.get(f'https://{domain}', allow_redirects=True)
+        # Run Terminus command to get website metrics
+        terminus_command = f"terminus env:metrics {site_name}.live --format=json"
+        response = subprocess.getoutput(terminus_command)
+        
+        # Parse the JSON response
+        data = json.loads(response)
+        
+        # Extract cache hit ratios
+        cache_hit_ratios = [float(entry['cache_hit_ratio'][:-1]) for entry in data['timeseries'].values() if entry['cache_hit_ratio'] != "--"]
+        # Calculate the average cache hit ratio
+        average_cache_hit_ratio = sum(cache_hit_ratios) / len(cache_hit_ratios)
 
-        # Get the final URL after following redirects
-        final_url = response.url
-        print(final_url)
-        # Extract cache-control and age headers from the response
-        cache_control = response.headers.get('cache-control', '')
-        age = response.headers.get('age', '')
-
-        # Determine caching status based on cache-control and age headers of the final URL
-        if "no-cache" not in cache_control.lower() and age.isdigit() and int(age) > 0:
-            return True  # Caching enabled
+        # Check if the average cache hit ratio is below the threshold
+        if average_cache_hit_ratio < threshold:
+          #  print(site_name)
+          #  print(average_cache_hit_ratio)
+            return True
         else:
-            return False  # Caching not enabled
-
+            return False
+    
     except Exception as e:
-        print(f"Error checking caching status for {domain}: {e}")
-        return False  # Assume caching not enabled in case of any error
-          
+        print(f"Error: {e}")
+        return False
 
 def get_redis_command(site_name):
     """
@@ -230,7 +232,7 @@ build_tools_sites_count = 0
 created_custom_upstream_yes_count = 0
 agcdn_enabled_sites_count = 0
 total_sites_with_primary_domain = 0
-total_sites_with_caching = 0
+total_sites_with_caching_below_60 = 0
 redis_enabled_sites_count = 0
 
 # List to store sites not using AGCDN
@@ -246,7 +248,7 @@ def perform_site_checks(site_info):
     global created_custom_upstream_yes_count
     global agcdn_enabled_sites_count
     global total_sites_with_primary_domain
-    global total_sites_with_caching
+    global total_sites_with_caching_below_60
     global redis_enabled_sites_count
     # Get the site name
     site_name = site_info["name"]
@@ -270,10 +272,25 @@ def perform_site_checks(site_info):
             # Check if AGCDN is enabled
             if "agcdn-info" in agcdn_check_output:
                 agcdn_enabled_sites_count += 1
-                print("agcdn")
             else:
                 sites_not_using_agcdn.append(site_name)
-                print("agcdn")
+            
+            # Check caching status
+            if check_caching(site_name):
+                total_sites_with_caching_below_60 += 1
+
+            # Check Redis status
+            redis_command = get_redis_command(site_name)
+            
+            if redis_command:
+                if check_redis_status(redis_command):
+                    print("Redis is enabled and configured properly.")
+                    redis_enabled_sites_count += 1
+                else:
+                    print("Redis is enabled but may not be configured properly.")
+                    redis_enabled_sites_count += 1
+            else:
+                print("Redis is not enabled.")
 
     except json.JSONDecodeError:
         print(f"Error decoding JSON for primary domain of {site_name}")
@@ -285,7 +302,7 @@ def perform_site_checks(site_info):
     # Check if the output contains multidev environments
     if "You have no multidev environments" not in multidev_output:
         multidev_sites_count += 1
-        print("multi")
+
     # Check the framework of the site
     if "wordpress" in site_info.get("framework", "").lower():
         wordpress_sites_count += 1
@@ -297,12 +314,10 @@ def perform_site_checks(site_info):
     autopilot_output = subprocess.getoutput(autopilot_command)
 
     # Check if Autopilot is enabled
-    print("check autopilot")
     if autopilot_output.find('[error]') == -1:
         autopilot_sites_count += 1
 
     # Run Terminus command to check Quicksilver Hooks
-    print("quicksilver tooks check")
     quicksilver_hooks_command = f'terminus workflow:info:logs {site_name}'
     quicksilver_hooks_output = subprocess.getoutput(quicksilver_hooks_command)
 
@@ -311,7 +326,6 @@ def perform_site_checks(site_info):
         quicksilver_hooks_sites_count += 1
 
     # Run Terminus command to check Build Tools
-    print("build tools check")
     build_tools_command = f'terminus build:project:info {site_name}'
     build_tools_output = subprocess.getoutput(build_tools_command)
 
@@ -320,7 +334,6 @@ def perform_site_checks(site_info):
         build_tools_sites_count += 1
 
     # Run Terminus command to check Custom Upstreams
-    print("upstream check")    
     custom_upstreams_command = f'terminus org:upstream:list {org_id} --format=json'
     custom_upstreams_output = subprocess.getoutput(custom_upstreams_command)
 
@@ -358,7 +371,7 @@ percentage_quicksilver_hooks_sites = round((quicksilver_hooks_sites_count / tota
 percentage_build_tools_sites = round((build_tools_sites_count / total_sites) * 100)
 percentage_created_custom_upstream_yes = round((created_custom_upstream_yes_count / total_sites) * 100)
 percentage_agcdn_enabled_sites = round((agcdn_enabled_sites_count / total_sites_with_primary_domain) * 100)
-percentage_sites_with_caching = round((total_sites_with_caching / total_sites_with_primary_domain) * 100)
+percentage_sites_with_caching = round((total_sites_with_caching_below_60 / total_sites_with_primary_domain) * 100)
 percentage_redis_enabled = round((redis_enabled_sites_count / total_sites_with_primary_domain) * 100)
 
 # Get ticket volume
@@ -423,7 +436,7 @@ html_template = """
 
   <section class="bg-white rounded-md p-6 mb-8">
     <h2 class="text-2xl font-bold mb-4">Caching Best Practices</h2>
-    <p>Percentage of sites with caching enabled: {{ percentage_sites_with_caching }}%</p>
+    <p>Percentage of sites with a CHR below 60: {{ total_sites_with_caching_below_60 }}%</p>
     <p>Percentage of sites with Redis enabled: {{ percentage_redis_enabled }}%</p>
   </section>
 
@@ -458,7 +471,7 @@ html_content = template.render(
     created_count=created_count,
     closed_count=closed_count,
     open_count=open_count,
-    percentage_sites_with_caching=percentage_sites_with_caching,
+    total_sites_with_caching_below_60=total_sites_with_caching_below_60,
     percentage_redis_enabled=percentage_redis_enabled,
     customer_name=customer_name,
     account_tier=account_tier

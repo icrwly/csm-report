@@ -133,7 +133,7 @@ else:
 print("Custom Upstreams:", custom_upstreams_status)
 
 # Function to check caching status and cache hit ratio for a given domain
-def check_caching(site_name, threshold=60):
+def check_caching(site_name, threshold=60, output_file="caching-below60-report.txt"):
     try:
         # Run Terminus command to get website metrics
         terminus_command = f"terminus env:metrics {site_name}.live --format=json"
@@ -149,8 +149,10 @@ def check_caching(site_name, threshold=60):
 
         # Check if the average cache hit ratio is below the threshold
         if average_cache_hit_ratio < threshold:
-          #  print(site_name)
-          #  print(average_cache_hit_ratio)
+            # Open the output file in append mode
+            with open(output_file, "a") as file:
+                # Write the site name and its cache hit ratio to the file
+                file.write(f"{site_name}: {average_cache_hit_ratio:.2f}\n")
             return True
         else:
             return False
@@ -232,7 +234,10 @@ sites_data = json.loads(raw_output)
 
 # Filter out sandbox sites
 non_sandbox_sites = [site for site in sites_data.values() if site.get("plan_name") != "Sandbox"]
+D7sites = [site for site in sites_data.values() if site.get("framework") == "drupal" ]
 total_sites = len(non_sandbox_sites)
+total_D7_sites = len(D7sites)
+print(total_D7_sites)
 
 # Initialize counters for metrics
 multidev_sites_count = 0
@@ -368,7 +373,7 @@ percentage_sites_with_caching = round((total_sites_with_caching_below_60 / total
 percentage_redis_enabled = round((redis_enabled_sites_count / total_sites_with_primary_domain) * 100)
 
 # Get ticket volume
-created_count, closed_count, open_count = get_ticket_volume(org_id, days=30, admin_cookie="bfee453a-5bfd-4acd-9649-ac29d6155abb%3A8068780a-cd13-11ee-985e-020ecde91e7d%3ARA7Is29od5yJdgQDDnNkF")
+created_count, closed_count, open_count = get_ticket_volume(org_id, days=30, admin_cookie="bfee453a-5bfd-4acd-9649-ac29d6155abb:cfd7ee7c-db17-11ee-96c7-56080d6812bb:ZShoOLScVV5xfcU2dlkhf")
 
 # HTML template
 html_template = """
@@ -380,6 +385,15 @@ html_template = """
   <title>Pantheon Report</title>
   <!-- Include Tailwind CSS CDN or link to your local file -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
+  <style>
+
+  ul.flex li:not(:last-child)::after {
+    content: "|";
+    margin-left: 5px;
+    margin-right: 5px;
+  }
+
+  </style>
 </head>
 <body class="font-sans bg-gradient-to-tr from-black via-indigo-800 to-yellow-300 h-screen p-8">
 
@@ -397,16 +411,16 @@ html_template = """
         <tr>
           <th class="px-4 py-2 text-left">Email</th>
           <th class="px-4 py-2 text-left">Role</th>
-          <th class="px-4 py-2 text-left">Certification</th>
+          <th class="px-4 py-2 text-center">Certification</th>
         </tr>
       </thead>
       <tbody>
     
       {% for user_id, user_info in pantheon_team_members.items() %}
-        <tr class="border-t border-gray-200 space-x-4">
-          <td>{{ user_info["email"] }}</td> 
-          <td>{{ user_info["role"] }}</td>
-          <td>{% if is_certified(user_info["email"]) %}Yes{% else %}No{% endif %}</td>
+        <tr class="border-t border-gray-200">
+          <td class="px-4 py-2">{{ user_info["email"] }}</td> 
+          <td class="px-4 py-2">{{ user_info["role"] }}</td>
+          <td class="px-4 py-2 text-center">{% if is_certified(user_info["email"]) %}Yes{% else %}No{% endif %}</td>
         </tr>
       {% endfor %}
       </tbody>
@@ -417,6 +431,7 @@ html_template = """
     <h2 class="text-2xl font-bold mb-4">CMS Frameworks</h2>
     <p>Percentage of sites using WordPress: {{ percentage_wordpress_sites }}%</p>
     <p>Percentage of sites using Drupal: {{ percentage_drupal_sites }}%</p>
+    <p>{{ total_D7_sites }} sites are Drupal 7.  Drupal 7 end-of-life is January 5th, 2025</p>
   </section>
 
   <section class="bg-white rounded-md p-6 mb-8">
@@ -433,7 +448,7 @@ html_template = """
     <p>Percentage of sites where AGCDN is enabled: {{ percentage_agcdn_enabled_sites }}%</p>
     {% if sites_not_using_agcdn and (percentage_agcdn_enabled_sites != 0 and percentage_agcdn_enabled_sites != 100) %}
     <p>Sites not using AGCDN:</p>
-    <ul>
+    <ul class="flex flex-wrap items-left justify-left text-gray-900 dark:text-white">
       {% for site in sites_not_using_agcdn %}
         <li>{{ site }}</li>
       {% endfor %}
@@ -445,6 +460,7 @@ html_template = """
     <h2 class="text-2xl font-bold mb-4">Caching Best Practices</h2>
     <p>Percentage of sites with a CHR below 60: {{ total_sites_with_caching_below_60 }}%</p>
     <p>Percentage of sites with Redis enabled: {{ percentage_redis_enabled }}%</p>
+    <p><a href="caching-below60-report.txt">Caching Report</p>
   </section>
 
   <section class="bg-white rounded-md p-6 mb-8">
@@ -464,6 +480,7 @@ html_template = """
 template = Template(html_template)
 html_content = template.render(
     total_sites=total_sites,
+    total_D7_sites=total_D7_sites,
     percentage_multidev_sites=percentage_multidev_sites,
     percentage_wordpress_sites=percentage_wordpress_sites,
     percentage_drupal_sites=percentage_drupal_sites,

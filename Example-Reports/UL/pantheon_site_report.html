@@ -1,0 +1,142 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pantheon Report</title>
+  <!-- Include Tailwind CSS CDN or link to your local file -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
+  <style>
+
+  ul.flex li:not(:last-child)::after {
+    content: "|";
+    margin-left: 5px;
+    margin-right: 5px;
+  }
+
+  </style>
+</head>
+<body class="font-sans bg-gradient-to-tr from-black via-indigo-800 to-yellow-300 h-screen p-8">
+
+  <h1 class="text-4xl text-white font-bold mb-8">Pantheon Customer Report - UL Solutions (diamond)</h1>
+
+  <section class="bg-white rounded-md p-6 mb-8">
+    <h2 class="text-2xl font-bold mb-4">Total Number of Sites (Excluding Sandbox)</h2>
+    <p>Total: 7</p>
+  </section>
+
+    <section class="bg-white rounded-md p-6 mb-8">
+     <h2 class="text-2xl font-bold mb-4">Team Members</h2>
+     <table class="w-full">
+      <thead>
+        <tr>
+          <th class="px-4 py-2 text-left">Email</th>
+          <th class="px-4 py-2 text-left">Role</th>
+          <th class="px-4 py-2 text-center">Certification</th>
+        </tr>
+      </thead>
+      <tbody>
+    
+      
+        <tr class="border-t border-gray-200">
+          <td class="px-4 py-2">rod.homor@ul.com</td> 
+          <td class="px-4 py-2">admin</td>
+          <td class="px-4 py-2 text-center">No</td>
+        </tr>
+      
+        <tr class="border-t border-gray-200">
+          <td class="px-4 py-2">mike.shuck@ul.com</td> 
+          <td class="px-4 py-2">admin</td>
+          <td class="px-4 py-2 text-center">No</td>
+        </tr>
+      
+        <tr class="border-t border-gray-200">
+          <td class="px-4 py-2">lee.lemon@ul.com</td> 
+          <td class="px-4 py-2">developer</td>
+          <td class="px-4 py-2 text-center">No</td>
+        </tr>
+      
+        <tr class="border-t border-gray-200">
+          <td class="px-4 py-2">yurii.ivanskyi@ul.com</td> 
+          <td class="px-4 py-2">developer</td>
+          <td class="px-4 py-2 text-center">No</td>
+        </tr>
+      
+        <tr class="border-t border-gray-200">
+          <td class="px-4 py-2">terribeth.beasley@ul.com</td> 
+          <td class="px-4 py-2">developer</td>
+          <td class="px-4 py-2 text-center">No</td>
+        </tr>
+      
+        <tr class="border-t border-gray-200">
+          <td class="px-4 py-2">daniel.premo@ul.com</td> 
+          <td class="px-4 py-2">admin</td>
+          <td class="px-4 py-2 text-center">No</td>
+        </tr>
+      
+        <tr class="border-t border-gray-200">
+          <td class="px-4 py-2">gung.wang@ul.com</td> 
+          <td class="px-4 py-2">developer</td>
+          <td class="px-4 py-2 text-center">No</td>
+        </tr>
+      
+      </tbody>
+    </table>
+  </section>
+
+  <section class="bg-white rounded-md p-6 mb-8">
+    <h2 class="text-2xl font-bold mb-4">CMS Frameworks</h2>
+    <p>Percentage of sites using WordPress: 0%</p>
+    <p>Percentage of sites using Drupal: 100%</p>
+    <p class="mt-2">0 sites are Drupal 7.  Drupal 7 end-of-life is January 5th, 2025</p>
+  </section>
+
+  <section class="bg-white rounded-md p-6 mb-8">
+    <h2 class="text-2xl font-bold mb-4">WebOps Adoption Metrics</h2>
+    <p>Percentage of sites with one or more Multidev environments: 100%</p>
+    <p>Percentage of sites using Autopilot: 0%</p>
+    <p>Percentage of sites using Quicksilver Hooks: 0%</p>
+    <p>Percentage of sites using Build Tools: 71%</p>
+    <p>Using Custom Upstreams: Yes</p>  
+  </section>
+
+  <section class="bg-white rounded-md p-6 mb-8">
+    <h2 class="text-2xl font-bold mb-4">AGCDN Usage</h2>
+    <p class="mb-2">Percentage of sites where AGCDN is enabled: 33%</p>
+    
+    <p class="mb-2">Sites not using AGCDN:</p>
+    <ul class="flex flex-wrap items-left justify-left text-gray-900 dark:text-white">
+      
+        <li>hubul</li>
+      
+        <li>emergo1</li>
+      
+        <li>shimadzu</li>
+      
+        <li>aunzul</li>
+      
+    </ul>
+    
+  </section>
+
+  <section class="bg-white rounded-md p-6 mb-8">
+    <h2 class="text-2xl font-bold mb-4">Caching Best Practices</h2>
+    <p>Percentage of sites with a CHR below 60: 1%</p>
+    <p>Percentage of sites with Redis enabled: 100%</p>
+    
+    <p><a href="caching-below60-report.txt" class="font-medium text-blue-600 dark:text-blue-500 hover:underline">Caching Report</a></p>
+    
+  </section>
+
+  <section class="bg-white rounded-md p-6 mb-8">
+    <h2 class="text-2xl font-bold mb-4">Support Ticket Volume (Last 30 days)</h2>
+    <p>Total tickets created: 8</p>
+    <p>Tickets closed: 1</p>
+    <p>Tickets open: 7</p>
+  </section>
+
+  <!-- Add more sections as needed -->
+
+</body>
+</html>

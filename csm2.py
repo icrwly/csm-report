@@ -3,7 +3,6 @@ import requests
 import subprocess
 import json
 import os
-import statistics
 from jinja2 import Template
 from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor
@@ -32,7 +31,6 @@ def get_customer_info(account_id):
     # API endpoint to fetch customer information
     customer_info_url = f"https://admin.dashboard.pantheon.io/api/accounts/{account_id}"
     response = requests.get(customer_info_url, cert=cert_path, headers=headers, verify=False)
-    print(response)  
     if response.status_code == 200:
         customer_data = response.json()
         customer_name = customer_data["profile"]["name"]
@@ -48,7 +46,7 @@ def get_account_tier(account_id):
     response = requests.get(account_tier_url, cert=cert_path, headers=headers, verify=False)
     if response.status_code == 200:
         tier_data = response.json()
-        account_tier = tier_data["tier_name"]
+        account_tier = tier_data["configurations"]["support_package_label"]["value"]
         return account_tier
     else:
         print(f"Failed to fetch account tier information for account ID {account_id}")
@@ -56,7 +54,7 @@ def get_account_tier(account_id):
 
 # Get customer information
 customer_name = get_customer_info(org_id)
-print(customer_name)
+
 if not customer_name:
     exit("Failed to retrieve customer information.")
 
@@ -75,8 +73,8 @@ pantheon_team_members = {user_id: user_info for user_id, user_info in team_membe
 
 # Function to check certification status
 def is_certified(email):
-    print("get certifed")
-    certification_api_url = f'https://certification.pantheon.io/api/v1/certification-list?email={email}'
+    print("get certification status")
+    certification_api_url = f'https://certification.pantheon.io/api/v1/certification-list?mail={email}'
     response = requests.get(certification_api_url)
     return bool(response.json())
 
@@ -101,7 +99,7 @@ def get_ticket_volume(org_id, days=30, admin_cookie=''):
 
     # Make API request to get tickets with headers and SSL cert verification disabled
     ticket_api_url = f'https://admin.dashboard.pantheon.io/api/accounts/{org_id}/tickets'
-    # print(ticket_api_url)
+    
     response = requests.get(ticket_api_url, cert=cert_path, headers=headers, verify=False)
     
     if response.status_code == 200:
@@ -130,7 +128,7 @@ if "[warning] You have no upstreams." in custom_upstreams_output:
 else:
     custom_upstreams_status = "Yes"
 
-print("Custom Upstreams:", custom_upstreams_status)
+#print("Custom Upstreams:", custom_upstreams_status)
 
 # Function to check caching status and cache hit ratio for a given domain
 def check_caching(site_name, threshold=60, output_file="caching-below60-report.txt"):
@@ -194,7 +192,7 @@ def get_redis_command(site_name):
                 elif isinstance(connection, str):
                     if connection:
                         return connection
-            print(f"No Redis command found for {site_name}.")
+          #  print(f"No Redis command found for {site_name}.")
             return None
         else:
             print(f"Unexpected data format: {data}")
@@ -228,7 +226,6 @@ def check_redis_status(redis_command):
     
 # Run Terminus command to get the list of sites
 terminus_command = f'terminus org:site:list {org_id} --format=json'
-print("get site list")
 raw_output = subprocess.check_output(terminus_command, shell=True, text=True)
 sites_data = json.loads(raw_output)
 
@@ -237,7 +234,6 @@ non_sandbox_sites = [site for site in sites_data.values() if site.get("plan_name
 D7sites = [site for site in sites_data.values() if site.get("framework") == "drupal" ]
 total_sites = len(non_sandbox_sites)
 total_D7_sites = len(D7sites)
-print(total_D7_sites)
 
 # Initialize counters for metrics
 multidev_sites_count = 0
@@ -299,10 +295,8 @@ def perform_site_checks(site_info):
             
             if redis_command:
                 if check_redis_status(redis_command):
-                    print("Redis is enabled and configured properly.")
                     redis_enabled_sites_count += 1
                 else:
-                    print("Redis is enabled but may not be configured properly.")
                     redis_enabled_sites_count += 1
             else:
                 print("Redis is not enabled.")
@@ -431,7 +425,7 @@ html_template = """
     <h2 class="text-2xl font-bold mb-4">CMS Frameworks</h2>
     <p>Percentage of sites using WordPress: {{ percentage_wordpress_sites }}%</p>
     <p>Percentage of sites using Drupal: {{ percentage_drupal_sites }}%</p>
-    <p>{{ total_D7_sites }} sites are Drupal 7.  Drupal 7 end-of-life is January 5th, 2025</p>
+    <p class="mt-2">{{ total_D7_sites }} sites are Drupal 7.  Drupal 7 end-of-life is January 5th, 2025</p>
   </section>
 
   <section class="bg-white rounded-md p-6 mb-8">
@@ -445,9 +439,9 @@ html_template = """
 
   <section class="bg-white rounded-md p-6 mb-8">
     <h2 class="text-2xl font-bold mb-4">AGCDN Usage</h2>
-    <p>Percentage of sites where AGCDN is enabled: {{ percentage_agcdn_enabled_sites }}%</p>
+    <p class="mb-2">Percentage of sites where AGCDN is enabled: {{ percentage_agcdn_enabled_sites }}%</p>
     {% if sites_not_using_agcdn and (percentage_agcdn_enabled_sites != 0 and percentage_agcdn_enabled_sites != 100) %}
-    <p>Sites not using AGCDN:</p>
+    <p class="mb-2">Sites not using AGCDN:</p>
     <ul class="flex flex-wrap items-left justify-left text-gray-900 dark:text-white">
       {% for site in sites_not_using_agcdn %}
         <li>{{ site }}</li>
@@ -461,7 +455,7 @@ html_template = """
     <p>Percentage of sites with a CHR below 60: {{ total_sites_with_caching_below_60 }}%</p>
     <p>Percentage of sites with Redis enabled: {{ percentage_redis_enabled }}%</p>
     {% if total_sites_with_caching_below_60 != 0 %}
-    <p><a href="caching-below60-report.txt">Caching Report</p>
+    <p><a href="caching-below60-report.txt" class="font-medium text-blue-600 dark:text-blue-500 hover:underline">Caching Report</a></p>
     {% endif %}
   </section>
 

@@ -460,7 +460,9 @@ html_template = """
     <h2 class="text-2xl font-bold mb-4">Caching Best Practices</h2>
     <p>Percentage of sites with a CHR below 60: {{ total_sites_with_caching_below_60 }}%</p>
     <p>Percentage of sites with Redis enabled: {{ percentage_redis_enabled }}%</p>
+    {% if total_sites_with_caching_below_60 != 0 %}
     <p><a href="caching-below60-report.txt">Caching Report</p>
+    {% endif %}
   </section>
 
   <section class="bg-white rounded-md p-6 mb-8">
